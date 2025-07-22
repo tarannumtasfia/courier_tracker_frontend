@@ -62,7 +62,7 @@ const Dashboard = () => {
     setLoadingCreate(true);
 
     try {
-      const response = await fetch("/api/packages/create", {
+      const response = await fetch("https://courier-tracker-backend-x3hy.onrender.com/api/packages/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
