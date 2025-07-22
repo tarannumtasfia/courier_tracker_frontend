@@ -48,57 +48,63 @@ const Dashboard = () => {
   };
 
   // Submit handler to create a new package
-  const handleCreatePackage = async (e) => {
-    e.preventDefault();
-    setCreateStatus(null);
+ const handleCreatePackage = async (e) => {
+  e.preventDefault();
+  setCreateStatus(null);
 
-    if (!newPackage.package_id || !newPackage.lat || !newPackage.lon) {
-      setCreateStatus({
-        error: "Package ID, Latitude, and Longitude are required."
-      });
-      return;
-    }
+  if (!newPackage.package_id || !newPackage.lat || !newPackage.lon) {
+    setCreateStatus({
+      error: "Package ID, Latitude, and Longitude are required."
+    });
+    return;
+  }
 
-    setLoadingCreate(true);
+  setLoadingCreate(true);
 
-    try {
-      const response = await fetch("https://courier-tracker-backend-x3hy.onrender.com/api/packages/create", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          package_id: newPackage.package_id,
-          lat: parseFloat(newPackage.lat),
-          lon: parseFloat(newPackage.lon),
-          eta: newPackage.eta || null,
-          note: newPackage.note || null
-        })
-      });
+  try {
+    const token = localStorage.getItem('token'); // <-- get your token here
 
-      if (!response.ok) {
-        let errMsg = "Failed to create package";
-        try {
-          const errData = await response.json();
-          if (errData.error) errMsg = errData.error;
-        } catch {
-          // ignore JSON parse errors
-        }
-        throw new Error(errMsg);
+    const response = await fetch("https://courier-tracker-backend-x3hy.onrender.com/api/packages/create", {
+      method: "POST",
+      headers: { 
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`  // <-- add the token here
+      },
+      body: JSON.stringify({
+        package_id: newPackage.package_id,
+        lat: parseFloat(newPackage.lat),
+        lon: parseFloat(newPackage.lon),
+        eta: newPackage.eta || null,
+        note: newPackage.note || null
+      })
+    });
+
+    if (!response.ok) {
+      let errMsg = "Failed to create package";
+      try {
+        const errData = await response.json();
+        if (errData.error) errMsg = errData.error;
+      } catch {
+        // ignore JSON parse errors
       }
-
-      setCreateStatus({ success: "Package created successfully!" });
-      setNewPackage({ package_id: "", lat: "", lon: "", eta: "", note: "" });
-      if (refetch) refetch();
-
-      // Optional: reset filters so new package is shown
-      setFilter("all");
-      setStatusFilter("all");
-      setSearchTerm("");
-    } catch (err) {
-      setCreateStatus({ error: err.message });
-    } finally {
-      setLoadingCreate(false);
+      throw new Error(errMsg);
     }
-  };
+
+    setCreateStatus({ success: "Package created successfully!" });
+    setNewPackage({ package_id: "", lat: "", lon: "", eta: "", note: "" });
+    if (refetch) refetch();
+
+    // Optional: reset filters so new package is shown
+    setFilter("all");
+    setStatusFilter("all");
+    setSearchTerm("");
+  } catch (err) {
+    setCreateStatus({ error: err.message });
+  } finally {
+    setLoadingCreate(false);
+  }
+};
+
 
   return (
     <div className="p-4 max-w-screen-xl mx-auto relative">
