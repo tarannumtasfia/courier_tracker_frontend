@@ -5,11 +5,23 @@ import AlertBanner from "../components/AlertBanner";
 
 const Dashboard = () => {
   const [filter, setFilter] = useState("active");
-  const { packages, loading } = usePackages(filter);
+  const { packages, loading, refetch } = usePackages(filter);
   const [selectedPackageId, setSelectedPackageId] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("active");
 
+  // Create form state
+  const [newPackage, setNewPackage] = useState({
+    package_id: "",
+    lat: "",
+    lon: "",
+    eta: "",
+    note: ""
+  });
+  const [createStatus, setCreateStatus] = useState(null);
+  const [loadingCreate, setLoadingCreate] = useState(false);
+
+  // Filter packages based on search and statusFilter
   const filteredPackages = packages.filter((pkg) => {
     if (
       searchTerm &&
@@ -26,7 +38,67 @@ const Dashboard = () => {
     return true;
   });
 
+  // Packages flagged as stuck
   const stuckPackages = packages.filter((pkg) => pkg.isStuck);
+
+  // Input change handler for create form
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setNewPackage((prev) => ({ ...prev, [name]: value }));
+  };
+
+  // Submit handler to create a new package
+  const handleCreatePackage = async (e) => {
+    e.preventDefault();
+    setCreateStatus(null);
+
+    if (!newPackage.package_id || !newPackage.lat || !newPackage.lon) {
+      setCreateStatus({
+        error: "Package ID, Latitude, and Longitude are required."
+      });
+      return;
+    }
+
+    setLoadingCreate(true);
+
+    try {
+      const response = await fetch("/api/packages/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          package_id: newPackage.package_id,
+          lat: parseFloat(newPackage.lat),
+          lon: parseFloat(newPackage.lon),
+          eta: newPackage.eta || null,
+          note: newPackage.note || null
+        })
+      });
+
+      if (!response.ok) {
+        let errMsg = "Failed to create package";
+        try {
+          const errData = await response.json();
+          if (errData.error) errMsg = errData.error;
+        } catch {
+          // ignore JSON parse errors
+        }
+        throw new Error(errMsg);
+      }
+
+      setCreateStatus({ success: "Package created successfully!" });
+      setNewPackage({ package_id: "", lat: "", lon: "", eta: "", note: "" });
+      if (refetch) refetch();
+
+      // Optional: reset filters so new package is shown
+      setFilter("all");
+      setStatusFilter("all");
+      setSearchTerm("");
+    } catch (err) {
+      setCreateStatus({ error: err.message });
+    } finally {
+      setLoadingCreate(false);
+    }
+  };
 
   return (
     <div className="p-4 max-w-screen-xl mx-auto relative">
@@ -70,7 +142,78 @@ const Dashboard = () => {
         </select>
       </div>
 
-      {/* Table */}
+      {/* Create Package Form */}
+      <form
+        onSubmit={handleCreatePackage}
+        className="mb-6 p-4 border rounded bg-gray-50 max-w-md"
+      >
+        <h2 className="text-lg font-semibold mb-2">Create New Package</h2>
+        <input
+          type="text"
+          name="package_id"
+          placeholder="Package ID"
+          value={newPackage.package_id}
+          onChange={handleInputChange}
+          className="border p-2 rounded w-full mb-2"
+          required
+        />
+        <input
+          type="number"
+          step="any"
+          name="lat"
+          placeholder="Latitude"
+          value={newPackage.lat}
+          onChange={handleInputChange}
+          className="border p-2 rounded w-full mb-2"
+          required
+        />
+        <input
+          type="number"
+          step="any"
+          name="lon"
+          placeholder="Longitude"
+          value={newPackage.lon}
+          onChange={handleInputChange}
+          className="border p-2 rounded w-full mb-2"
+          required
+        />
+        <input
+          type="text"
+          name="eta"
+          placeholder="ETA (optional)"
+          value={newPackage.eta}
+          onChange={handleInputChange}
+          className="border p-2 rounded w-full mb-2"
+        />
+        <input
+          type="text"
+          name="note"
+          placeholder="Note (optional)"
+          value={newPackage.note}
+          onChange={handleInputChange}
+          className="border p-2 rounded w-full mb-4"
+        />
+        <button
+          type="submit"
+          disabled={loadingCreate}
+          className={`px-4 py-2 rounded ${
+            loadingCreate
+              ? "bg-gray-400 cursor-not-allowed"
+              : "bg-blue-600 hover:bg-blue-700 text-white"
+          }`}
+        >
+          {loadingCreate ? "Creating..." : "Create Package"}
+        </button>
+
+        {createStatus?.error && (
+          <p className="text-red-600 mt-2">{createStatus.error}</p>
+        )}
+        {createStatus?.success && (
+          <p className="text-green-600 mt-2">{createStatus.success}</p>
+        )}
+      </form>
+
+      {/* Packages Table */}
       {loading ? (
         <p>Loading packages...</p>
       ) : (
@@ -81,12 +224,8 @@ const Dashboard = () => {
                 <th className="px-2 py-2 border">#</th>
                 <th className="px-2 py-2 border">Package ID</th>
                 <th className="px-2 py-2 border">Status</th>
-                <th className="px-2 py-2 border hidden sm:table-cell">
-                  Last Seen
-                </th>
-                <th className="px-2 py-2 border hidden md:table-cell">
-                  Location
-                </th>
+                <th className="px-2 py-2 border hidden sm:table-cell">Last Seen</th>
+                <th className="px-2 py-2 border hidden md:table-cell">Location</th>
               </tr>
             </thead>
             <tbody>
@@ -124,7 +263,7 @@ const Dashboard = () => {
         </div>
       )}
 
-      {/* Detail View */}
+      {/* Package Detail View */}
       {selectedPackageId && (
         <PackageDetail
           packageId={selectedPackageId}
@@ -135,11 +274,12 @@ const Dashboard = () => {
   );
 };
 
+// Helper to show relative time in minutes ago
 function timeSince(timestamp) {
   const date = new Date(timestamp);
   if (isNaN(date.getTime())) return "unknown";
   const now = new Date();
-  const diff = Math.floor((now - date) / 60000); // minutes
+  const diff = Math.floor((now - date) / 60000); // minutes difference
   return `${diff}m ago`;
 }
 
