@@ -59,7 +59,7 @@ function App() {
 
   if (!token) {
     return (
-      <div className="min-h-screen bg-gradient-to-tr from-blue-400 to-indigo-600 flex flex-col justify-center items-center px-4">
+      <div className="min-h-screen bg-gradient-to-br from-sky-50 to-indigo-100 flex flex-col justify-center items-center px-4">
         <div className="bg-white rounded-lg shadow-lg max-w-md w-full p-8">
           <h2 className="text-3xl font-semibold text-center mb-6 text-gray-800">
             {isRegistering ? "Create Account" : "Welcome Back"}
